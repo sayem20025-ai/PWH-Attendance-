@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>PWH Attendance</title>
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;500;600&display=swap');
+
+:root {
+  --gold: #C9A84C;
+  --gold-light: #E8C97A;
+  --gold-dark: #A07830;
+  --blue: #1A3A5C;
+  --blue-light: #2A5080;
+  --blue-dark: #0F2238;
+  --bg: #0F1B2D;
+  --surface: #162336;
+  --border: #1E3050;
+  --text: #F0E8D8;
+  --muted: #7A8FA8;
+  --success: #2ECC71;
+  --danger: #E74C3C;
+  --warn: #F39C12;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  min-height: 100vh;
+  padding-bottom: 40px;
+}
+
+/* NAV */
+nav {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.nav-logo {
+  font-family: 'Playfair Display', serif;
+  font-size: 15px;
+  color: var(--gold-light);
+}
+
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.nav-name {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.logout-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+}
+
+/* MAIN */
+main { padding: 20px; max-width: 480px; margin: 0 auto; }
+
+/* CLOCK CARD */
+.clock-card {
+  background: linear-gradient(135deg, var(--blue-dark), var(--blue));
+  border: 1px solid var(--blue-light);
+  border-radius: 18px;
+  padding: 24px;
+  margin-bottom: 16px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.clock-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--gold-dark), var(--gold-light), var(--gold-dark));
+}
+
+.clock-time {
+  font-family: 'Playfair Display', serif;
+  font-size: 44px;
+  color: var(--gold-light);
+  letter-spacing: 3px;
+}
+
+.clock-date {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.shift-badge {
+  display: inline-block;
+  background: rgba(201,168,76,0.12);
+  border: 1px solid rgba(201,168,76,0.3);
+  color: var(--gold);
+  padding: 4px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  margin-top: 10px;
+}
+
+/* STATUS CARD */
+.status-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.status-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.status-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+
+.status-val {
+  font-family: 'Playfair Display', serif;
+  font-size: 18px;
+}
+
+.status-val.green { color: var(--success); }
+.status-val.red { color: var(--danger); }
+.status-val.muted { color: var(--muted); }
+
+.divider { height: 1px; background: var(--border); margin: 0 -20px 16px; }
+
+/* BUTTONS */
+.btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.btn {
+  padding: 16px;
+  border-radius: 14px;
+  border: none;
+  font-family: 'Playfair Display', serif;
+  font-size: 17px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-checkin {
+  background: linear-gradient(135deg, #1a5c3a, var(--success));
+  color: white;
+}
+
+.btn-checkout {
+  background: linear-gradient(135deg, #5c1a1a, var(--danger));
+  color: white;
+}
+
+.btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none !important; }
+.btn:not(:disabled):hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.3); }
+
+.btn-sub { font-size: 11px; opacity: 0.8; display: block; margin-top: 2px; font-family: 'Inter', sans-serif; }
+
+/* TOAST */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(100px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 24px;
+  font-size: 14px;
+  transition: transform 0.3s ease;
+  z-index: 999;
+  text-align: center;
+  max-width: 320px;
+  width: 90%;
+}
+
+.toast.show { transform: translateX(-50%) translateY(0); }
+.toast.success { border-color: rgba(46,204,113,0.4); color: var(--success); }
+.toast.error { border-color: rgba(231,76,60,0.4); color: var(--danger); }
+
+/* HISTORY */
+.section-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 18px;
+  color: var(--gold-light);
+  margin: 24px 0 14px;
+}
+
+/* SUMMARY BAR */
+.summary-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.summary-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 8px;
+  text-align: center;
+}
+
+.summary-num {
+  font-family: 'Playfair Display', serif;
+  font-size: 22px;
+}
+
+.summary-num.green { color: var(--success); }
+.summary-num.red { color: var(--danger); }
+.summary-num.warn { color: var(--warn); }
+.summary-num.blue { color: #5BA4F5; }
+
+.summary-lbl { font-size: 10px; color: var(--muted); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* CALENDAR */
+.cal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.cal-month {
+  font-family: 'Playfair Display', serif;
+  font-size: 16px;
+  color: var(--gold-light);
+}
+
+.cal-nav {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.cal-grid {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.cal-days-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  background: var(--blue-dark);
+  padding: 8px 0;
+}
+
+.cal-day-name {
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.cal-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  background: var(--border);
+}
+
+.cal-day {
+  background: var(--surface);
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s;
+  position: relative;
+}
+
+.cal-day:hover { background: var(--blue-dark); }
+
+.cal-day.empty { background: var(--bg); cursor: default; }
+
+.cal-day .day-num {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.cal-day .day-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  margin-top: 3px;
+}
+
+.cal-day.present { background: rgba(46,204,113,0.08); }
+.cal-day.present .day-num { color: var(--success); }
+.cal-day.present .day-dot { background: var(--success); }
+
+.cal-day.absent { background: rgba(231,76,60,0.06); }
+.cal-day.absent .day-num { color: var(--danger); }
+.cal-day.absent .day-dot { background: var(--danger); }
+
+.cal-day.late .day-dot { background: var(--warn); }
+.cal-day.late .day-num { color: var(--warn); }
+
+.cal-day.off .day-num { color: var(--border); }
+.cal-day.today .day-num {
+  background: var(--gold);
+  color: var(--blue-dark);
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700;
+}
+
+/* DAY DETAIL */
+.day-detail {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px;
+  margin-top: 12px;
+  display: none;
+}
+
+.day-detail.show { display: block; }
+
+.day-detail-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 16px;
+  color: var(--gold-light);
+  margin-bottom: 14px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+
+.detail-row:last-child { border-bottom: none; }
+.detail-key { color: var(--muted); }
+.detail-val { font-weight: 500; }
+
+.spinner {
+  display: inline-block;
+  width: 14px; height: 14px;
+  border: 2px solid rgba(255,255,255,0.2);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  vertical-align: middle;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">Worth Hotel HK</div>
+  <div class="nav-right">
+    <span class="nav-name" id="navName">—</span>
+    <button class="logout-btn" onclick="logout()">Logout</button>
+  </div>
+</nav>
+
+<main>
+  <!-- CLOCK -->
+  <div class="clock-card">
+    <div class="clock-time" id="clock">--:--:--</div>
+    <div class="clock-date" id="clockDate">—</div>
+    <div class="shift-badge" id="shiftBadge">Shift: --:-- → --:--</div>
+  </div>
+
+  <!-- STATUS -->
+  <div class="status-card">
+    <div class="status-row">
+      <div>
+        <div class="status-label" id="lblCheckIn">Check In</div>
+        <div class="status-val green" id="valCheckIn">—</div>
+      </div>
+      <div style="text-align:right">
+        <div class="status-label" id="lblCheckOut">Check Out</div>
+        <div class="status-val red" id="valCheckOut">—</div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="btn-row">
+      <button class="btn btn-checkin" id="btnIn" onclick="markAttendance('IN')">
+        Check In
+        <span class="btn-sub" id="subIn">Tap to clock in</span>
+      </button>
+      <button class="btn btn-checkout" id="btnOut" onclick="markAttendance('OUT')">
+        Check Out
+        <span class="btn-sub" id="subOut">Tap to clock out</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- HISTORY -->
+  <div class="section-title" id="historyTitle">My Attendance</div>
+
+  <div class="summary-bar">
+    <div class="summary-item">
+      <div class="summary-num green" id="sumPresent">—</div>
+      <div class="summary-lbl" id="sumLblPresent">Present</div>
+    </div>
+    <div class="summary-item">
+      <div class="summary-num red" id="sumAbsent">—</div>
+      <div class="summary-lbl" id="sumLblAbsent">Absent</div>
+    </div>
+    <div class="summary-item">
+      <div class="summary-num warn" id="sumLate">—</div>
+      <div class="summary-lbl" id="sumLblLate">Late</div>
+    </div>
+    <div class="summary-item">
+      <div class="summary-num blue" id="sumHours">—</div>
+      <div class="summary-lbl" id="sumLblHours">Hours</div>
+    </div>
+  </div>
+
+  <div class="cal-header">
+    <button class="cal-nav" onclick="changeMonth(-1)">‹</button>
+    <div class="cal-month" id="calMonth">—</div>
+    <button class="cal-nav" onclick="changeMonth(1)">›</button>
+  </div>
+
+  <div class="cal-grid">
+    <div class="cal-days-header">
+      <div class="cal-day-name">Su</div>
+      <div class="cal-day-name">Mo</div>
+      <div class="cal-day-name">Tu</div>
+      <div class="cal-day-name">We</div>
+      <div class="cal-day-name">Th</div>
+      <div class="cal-day-name">Fr</div>
+      <div class="cal-day-name">Sa</div>
+    </div>
+    <div class="cal-days" id="calDays"></div>
+  </div>
+
+  <div class="day-detail" id="dayDetail">
+    <div class="day-detail-title" id="detailDate">—</div>
+    <div class="detail-row"><span class="detail-key">Check In</span><span class="detail-val" id="detailIn">—</span></div>
+    <div class="detail-row"><span class="detail-key">Check Out</span><span class="detail-val" id="detailOut">—</span></div>
+    <div class="detail-row"><span class="detail-key">Hours Worked</span><span class="detail-val" id="detailHours">—</span></div>
+    <div class="detail-row"><span class="detail-key">Status</span><span class="detail-val" id="detailStatus">—</span></div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://dqucdgknvcvlowtjwdrk.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxdWNkZ2tudmN2bG93dGp3ZHJrIiwicm9sZSI6ImFub24iLCJpYXQiOj';
+const OFFICE_LAT   = 24.4735991;
+const OFFICE_LNG   = 39.6116132;
+const MAX_DISTANCE = 100;
+
+let session = null;
+let emp = null;
+let todayRecord = null;
+let calYear, calMonth;
+let monthRecords = [];
+
+// Auth guard
+function init() {
+  const raw = localStorage.getItem('pwh_session');
+  if (!raw) return window.location.href = 'index.html';
+  session = JSON.parse(raw);
+  emp = session.emp;
+  if (emp.role === 'admin') return window.location.href = 'admin.html';
+  document.getElementById('navName').textContent = emp.full_name.split(' ')[0];
+  document.getElementById('shiftBadge').textContent = `Shift: ${emp.shift_start} → ${emp.shift_end}`;
+  const now = new Date();
+  calYear = now.getFullYear();
+  calMonth = now.getMonth();
+  startClock();
+  loadToday();
+  loadMonthHistory();
+  startGPSWatch();
+}
+
+function startClock() {
+  function tick() {
+    const now = new Date();
+    document.getElementById('clock').textContent = now.toLocaleTimeString('en-US',{hour12:false});
+    document.getElementById('clockDate').textContent = now.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+  }
+  tick();
+  setInterval(tick, 1000);
+}
+
+function haversine(lat1,lng1,lat2,lng2) {
+  const R=6371000, dLat=(lat2-lat1)*Math.PI/180, dLng=(lng2-lng1)*Math.PI/180;
+  const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+function startGPSWatch() {
+  navigator.geolocation.watchPosition(pos => {
+    const dist = haversine(pos.coords.latitude,pos.coords.longitude,OFFICE_LAT,OFFICE_LNG);
+    if (dist > MAX_DISTANCE) {
+      localStorage.removeItem('pwh_session');
+      window.location.href = 'index.html';
+    }
+  }, null, {enableHighAccuracy:true});
+}
+
+async function supaGet(path) {
+  const res = await fetch(SUPABASE_URL+path, {
+    headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${session.token}`}
+  });
+  return res.json();
+}
+
+async function supaPost(path, body) {
+  return fetch(SUPABASE_URL+path, {
+    method:'POST',
+    headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${session.token}`,'Content-Type':'application/json',Prefer:'return=minimal'},
+    body:JSON.stringify(body)
+  });
+}
+
+async function supaPatch(path, body) {
+  return fetch(SUPABASE_URL+path, {
+    method:'PATCH',
+    headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${session.token}`,'Content-Type':'application/json',Prefer:'return=minimal'},
+    body:JSON.stringify(body)
+  });
+}
+
+async function loadToday() {
+  const today = new Date().toISOString().split('T')[0];
+  const data = await supaGet(`/rest/v1/attendance?employee_id=eq.${emp.employee_id}&date=eq.${today}&select=*`);
+  todayRecord = data[0] || null;
+  updateTodayUI();
+}
+
+function updateTodayUI() {
+  const btnIn  = document.getElementById('btnIn');
+  const btnOut = document.getElementById('btnOut');
+  const valIn  = document.getElementById('valCheckIn');
+  const valOut = document.getElementById('valCheckOut');
+
+  if (!todayRecord) {
+    valIn.textContent = '—';
+    valOut.textContent = '—';
+    btnIn.disabled = false;
+    btnOut.disabled = true;
+  } else {
+    valIn.textContent  = todayRecord.check_in  || '—';
+    valOut.textContent = todayRecord.check_out || '—';
+    btnIn.disabled  = !!todayRecord.check_in;
+    btnOut.disabled = !todayRecord.check_in || !!todayRecord.check_out;
+  }
+}
+
+async function markAttendance(type) {
+  const btnIn  = document.getElementById('btnIn');
+  const btnOut = document.getElementById('btnOut');
+  btnIn.disabled = true; btnOut.disabled = true;
+
+  const now   = new Date();
+  const today = now.toISOString().split('T')[0];
+  const time  = now.toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit'});
+
+  // Get GPS
+  let lat=null, lng=null;
+  try {
+    const pos = await new Promise((res,rej)=>navigator.geolocation.getCurrentPosition(res,rej,{enableHighAccuracy:true,timeout:8000}));
+    lat = pos.coords.latitude; lng = pos.coords.longitude;
+    const dist = haversine(lat,lng,OFFICE_LAT,OFFICE_LNG);
+    if (dist > MAX_DISTANCE) { showToast('You are too far from the office!','error'); updateTodayUI(); return; }
+  } catch { showToast('Could not get location. Please enable GPS.','error'); updateTodayUI(); return; }
+
+  try {
+    if (type === 'IN') {
+      // Check late
+      const [sh,sm] = emp.shift_start.split(':').map(Number);
+      const [nh,nm] = time.split(':').map(Number);
+      const isLate = nh*60+nm > sh*60+sm+5;
+      const res = await supaPost('/rest/v1/attendance', {
+        employee_id: emp.employee_id,
+        full_name: emp.full_name,
+        department: emp.department,
+        date: today,
+        check_in: time,
+        check_in_lat: lat,
+        check_in_lng: lng,
+        is_late: isLate
+      });
+      if (res.ok) {
+        showToast(`✓ Checked in at ${time}${isLate?' (Late)':''}`, isLate?'error':'success');
+        await loadToday();
+        await loadMonthHistory();
+      } else { showToast('Failed. Try again.','error'); }
+    } else {
+      // Check out
+      const [ih,im] = todayRecord.check_in.split(':').map(Number);
+      const [oh,om] = time.split(':').map(Number);
+      const hrs = ((oh*60+om)-(ih*60+im))/60;
+      const res = await supaPatch(`/rest/v1/attendance?id=eq.${todayRecord.id}`, {
+        check_out: time,
+        hours_worked: Math.max(0,+hrs.toFixed(2))
+      });
+      if (res.ok) {
+        showToast(`✓ Checked out at ${time}. ${hrs.toFixed(1)}h worked.`,'success');
+        await loadToday();
+        await loadMonthHistory();
+      } else { showToast('Failed. Try again.','error'); }
+    }
+  } catch { showToast('Network error. Try again.','error'); updateTodayUI(); }
+}
+
+async function loadMonthHistory() {
+  const firstDay = `${calYear}-${String(calMonth+1).padStart(2,'0')}-01`;
+  const lastDay  = new Date(calYear,calMonth+1,0).toISOString().split('T')[0];
+  monthRecords = await supaGet(`/rest/v1/attendance?employee_id=eq.${emp.employee_id}&date=gte.${firstDay}&date=lte.${lastDay}&select=*`);
+  renderCalendar();
+  renderSummary();
+}
+
+function renderSummary() {
+  const present = monthRecords.length;
+  const late    = monthRecords.filter(r=>r.is_late).length;
+  const hours   = monthRecords.reduce((s,r)=>s+(r.hours_worked||0),0);
+  const daysInMonth = new Date(calYear,calMonth+1,0).getDate();
+  const today = new Date();
+  const daysPassed = calYear===today.getFullYear()&&calMonth===today.getMonth() ? today.getDate() : daysInMonth;
+  const absent = Math.max(0, daysPassed - present);
+  document.getElementById('sumPresent').textContent = present;
+  document.getElementById('sumAbsent').textContent  = absent;
+  document.getElementById('sumLate').textContent    = late;
+  document.getElementById('sumHours').textContent   = hours.toFixed(0)+'h';
+}
+
+function renderCalendar() {
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('calMonth').textContent = `${monthNames[calMonth]} ${calYear}`;
+  const firstDow = new Date(calYear,calMonth,1).getDay();
+  const daysInMonth = new Date(calYear,calMonth+1,0).getDate();
+  const today = new Date();
+  const recordMap = {};
+  monthRecords.forEach(r => { recordMap[r.date] = r; });
+
+  let html = '';
+  for (let i=0;i<firstDow;i++) html += '<div class="cal-day empty"></div>';
+  for (let d=1;d<=daysInMonth;d++) {
+    const dateStr = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const rec = recordMap[dateStr];
+    const isToday = today.getDate()===d && today.getMonth()===calMonth && today.getFullYear()===calYear;
+    const dow = new Date(calYear,calMonth,d).getDay();
+    const isOff = dow===5||dow===6; // Friday/Saturday off
+    let cls = '';
+    if (isOff && !rec) cls = 'off';
+    else if (rec) cls = rec.is_late ? 'late present' : 'present';
+    else if (new Date(calYear,calMonth,d) < today && !isOff) cls = 'absent';
+    if (isToday) cls += ' today';
+    html += `<div class="cal-day ${cls}" onclick="showDayDetail('${dateStr}')">
+      <span class="day-num">${d}</span>
+      ${rec||cls.includes('absent') ? '<span class="day-dot"></span>' : ''}
+    </div>`;
+  }
+  document.getElementById('calDays').innerHTML = html;
+}
+
+function showDayDetail(dateStr) {
+  const det = document.getElementById('dayDetail');
+  const rec = monthRecords.find(r=>r.date===dateStr);
+  const d = new Date(dateStr+'T12:00:00');
+  document.getElementById('detailDate').textContent = d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+  if (rec) {
+    document.getElementById('detailIn').textContent    = rec.check_in || '—';
+    document.getElementById('detailOut').textContent   = rec.check_out || 'Still in office';
+    document.getElementById('detailHours').textContent = rec.hours_worked ? rec.hours_worked+'h' : '—';
+    document.getElementById('detailStatus').textContent = rec.is_late ? '🟡 Late' : '🟢 On Time';
+  } else {
+    document.getElementById('detailIn').textContent    = '—';
+    document.getElementById('detailOut').textContent   = '—';
+    document.getElementById('detailHours').textContent = '—';
+    document.getElementById('detailStatus').textContent = '🔴 Absent';
+  }
+  det.classList.add('show');
+  det.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function changeMonth(dir) {
+  calMonth += dir;
+  if (calMonth < 0) { calMonth=11; calYear--; }
+  if (calMonth > 11) { calMonth=0; calYear++; }
+  document.getElementById('dayDetail').classList.remove('show');
+  loadMonthHistory();
+}
+
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+function logout() {
+  localStorage.removeItem('pwh_session');
+  window.location.href = 'index.html';
+}
+
+init();
+</script>
+</body>
+</html>

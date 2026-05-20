@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Worth Hotel HK Attendance</title>
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="PWH Attendance">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;500;600&display=swap');
+
+:root {
+  --gold: #C9A84C;
+  --gold-light: #E8C97A;
+  --gold-dark: #A07830;
+  --blue: #1A3A5C;
+  --blue-light: #2A5080;
+  --blue-dark: #0F2238;
+  --bg: #0F1B2D;
+  --surface: #162336;
+  --border: #1E3050;
+  --text: #F0E8D8;
+  --muted: #7A8FA8;
+  --success: #2ECC71;
+  --danger: #E74C3C;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background-image:
+    radial-gradient(ellipse at 50% 0%, rgba(201,168,76,0.12) 0%, transparent 60%),
+    radial-gradient(ellipse at 50% 100%, rgba(26,58,92,0.4) 0%, transparent 60%);
+}
+
+.logo-area {
+  text-align: center;
+  margin-bottom: 36px;
+}
+
+.logo-placeholder {
+  width: 80px; height: 80px;
+  border: 2px dashed var(--gold-dark);
+  border-radius: 16px;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 16px;
+  color: var(--gold-dark);
+  font-size: 11px;
+  letter-spacing: 1px;
+}
+
+.hotel-name {
+  font-family: 'Playfair Display', serif;
+  font-size: 22px;
+  color: var(--gold-light);
+  line-height: 1.2;
+}
+
+.system-name {
+  font-size: 11px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 32px 28px;
+  width: 100%;
+  max-width: 400px;
+  position: relative;
+  overflow: hidden;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--gold-dark), var(--gold-light), var(--gold-dark));
+}
+
+/* SCREEN STATES */
+.screen { display: none; }
+.screen.active { display: block; }
+
+/* CHECKING SCREEN */
+.checking-icon {
+  width: 72px; height: 72px;
+  border-radius: 50%;
+  background: rgba(201,168,76,0.1);
+  border: 2px solid var(--gold);
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 20px;
+  font-size: 28px;
+}
+
+.checking-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 20px;
+  text-align: center;
+  margin-bottom: 8px;
+  color: var(--gold-light);
+}
+
+.checking-sub {
+  font-size: 13px;
+  color: var(--muted);
+  text-align: center;
+  margin-bottom: 24px;
+  line-height: 1.6;
+}
+
+.step-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.step-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  color: var(--muted);
+  transition: color 0.3s;
+}
+
+.step-item.done { color: var(--success); }
+.step-item.fail { color: var(--danger); }
+.step-item.active { color: var(--text); }
+
+.step-dot {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px;
+  flex-shrink: 0;
+  transition: background 0.3s;
+}
+
+.step-item.done .step-dot { background: rgba(46,204,113,0.2); color: var(--success); }
+.step-item.fail .step-dot { background: rgba(231,76,60,0.2); color: var(--danger); }
+.step-item.active .step-dot { background: rgba(201,168,76,0.2); color: var(--gold); animation: pulse 1s infinite; }
+
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+/* BLOCKED SCREEN */
+.blocked-icon {
+  width: 72px; height: 72px;
+  border-radius: 50%;
+  background: rgba(231,76,60,0.1);
+  border: 2px solid var(--danger);
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 20px;
+  font-size: 32px;
+}
+
+.blocked-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 20px;
+  text-align: center;
+  color: var(--danger);
+  margin-bottom: 10px;
+}
+
+.blocked-msg {
+  font-size: 13px;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.7;
+}
+
+/* LOGIN SCREEN */
+.login-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 22px;
+  color: var(--gold-light);
+  margin-bottom: 6px;
+}
+
+.login-sub {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 28px;
+}
+
+.lang-toggle {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 24px;
+}
+
+.lang-btn {
+  flex: 1;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  transition: all 0.2s;
+}
+
+.lang-btn.active {
+  border-color: var(--gold);
+  color: var(--gold);
+  background: rgba(201,168,76,0.08);
+}
+
+.input-group { margin-bottom: 16px; }
+
+label {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+input {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 13px 16px;
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+input:focus { border-color: var(--gold); }
+input::placeholder { color: var(--muted); }
+
+.btn {
+  width: 100%;
+  padding: 14px;
+  border-radius: 12px;
+  border: none;
+  font-family: 'Playfair Display', serif;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 8px;
+}
+
+.btn-gold {
+  background: linear-gradient(135deg, var(--gold-dark), var(--gold), var(--gold-light));
+  color: var(--blue-dark);
+  font-weight: 700;
+}
+
+.btn-gold:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(201,168,76,0.3); }
+.btn-gold:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+.error-msg {
+  background: rgba(231,76,60,0.1);
+  border: 1px solid rgba(231,76,60,0.3);
+  color: var(--danger);
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-top: 12px;
+  display: none;
+}
+
+.spinner {
+  display: inline-block;
+  width: 16px; height: 16px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: var(--blue-dark);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.footer-note {
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 24px;
+  letter-spacing: 0.5px;
+}
+</style>
+</head>
+<body>
+
+<div class="logo-area">
+  <div class="logo-placeholder">LOGO</div>
+  <div class="hotel-name">Worth Hotel HK</div>
+  <div class="system-name" id="sysLabel">Attendance System</div>
+</div>
+
+<div class="card">
+
+  <!-- CHECKING SCREEN -->
+  <div class="screen active" id="screenChecking">
+    <div class="checking-icon">🔐</div>
+    <div class="checking-title" id="checkTitle">Verifying Access</div>
+    <div class="checking-sub" id="checkSub">Please wait while we verify your location and device.</div>
+    <ul class="step-list">
+      <li class="step-item active" id="step1">
+        <div class="step-dot">📡</div>
+        <span id="step1text">Checking QR authorization...</span>
+      </li>
+      <li class="step-item" id="step2">
+        <div class="step-dot">📍</div>
+        <span id="step2text">Verifying office location...</span>
+      </li>
+      <li class="step-item" id="step3">
+        <div class="step-dot">📱</div>
+        <span id="step3text">Checking device...</span>
+      </li>
+    </ul>
+  </div>
+
+  <!-- BLOCKED SCREEN -->
+  <div class="screen" id="screenBlocked">
+    <div class="blocked-icon">🚫</div>
+    <div class="blocked-title" id="blockedTitle">Access Denied</div>
+    <div class="blocked-msg" id="blockedMsg">You must scan the QR code at the office to access this system.</div>
+  </div>
+
+  <!-- LOGIN SCREEN -->
+  <div class="screen" id="screenLogin">
+    <div class="lang-toggle">
+      <button class="lang-btn active" onclick="setLang('en')">English</button>
+      <button class="lang-btn" onclick="setLang('ar')">عربي</button>
+      <button class="lang-btn" onclick="setLang('bn')">বাংলা</button>
+    </div>
+    <div class="login-title" id="loginTitle">Welcome Back</div>
+    <div class="login-sub" id="loginSub">Sign in to record your attendance</div>
+    <div class="input-group">
+      <label id="labelEmail">Work Email</label>
+      <input type="email" id="emailInput" placeholder="your@email.com" />
+    </div>
+    <div class="input-group">
+      <label id="labelPass">Password</label>
+      <input type="password" id="passInput" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()" />
+    </div>
+    <button class="btn btn-gold" id="loginBtn" onclick="doLogin()">
+      <span id="loginBtnText">Sign In</span>
+    </button>
+    <div class="error-msg" id="loginError"></div>
+  </div>
+
+</div>
+
+<div class="footer-note">Peninsula Worth Hotel · PWH © 2026</div>
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────────────────
+const SUPABASE_URL  = 'https://dqucdgknvcvlowtjwdrk.supabase.co';
+const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxdWNkZ2tudmN2bG93dGp3ZHJrIiwicm9sZSI6ImFub24iLCJpYXQiOj';
+const OFFICE_LAT    = 24.4735991;
+const OFFICE_LNG    = 39.6116132;
+const MAX_DISTANCE  = 100; // meters
+// ─────────────────────────────────────────────────────────────────
+
+const LANGS = {
+  en: {
+    sys: 'Attendance System',
+    checkTitle: 'Verifying Access',
+    checkSub: 'Please wait while we verify your location and device.',
+    step1: 'Checking QR authorization...',
+    step2: 'Verifying office location...',
+    step3: 'Checking device...',
+    blockedTitle: 'Access Denied',
+    blockedNoQR: 'You must scan the QR code at the office to access this system.',
+    blockedFar: 'You are too far from the office. Please come to the office to check in.',
+    loginTitle: 'Welcome Back',
+    loginSub: 'Sign in to record your attendance',
+    labelEmail: 'Work Email',
+    labelPass: 'Password',
+    loginBtn: 'Sign In',
+    errWrong: 'Incorrect email or password.',
+    errDevice: 'This account is registered to another device. Contact HR.',
+  },
+  ar: {
+    sys: 'نظام الحضور',
+    checkTitle: 'جارٍ التحقق',
+    checkSub: 'يرجى الانتظار بينما نتحقق من موقعك وجهازك.',
+    step1: 'التحقق من رمز QR...',
+    step2: 'التحقق من موقع المكتب...',
+    step3: 'التحقق من الجهاز...',
+    blockedTitle: 'تم رفض الوصول',
+    blockedNoQR: 'يجب عليك مسح رمز QR في المكتب للوصول إلى النظام.',
+    blockedFar: 'أنت بعيد جداً عن المكتب. يرجى الحضور إلى المكتب لتسجيل الحضور.',
+    loginTitle: 'مرحباً بعودتك',
+    loginSub: 'سجل دخولك لتسجيل حضورك',
+    labelEmail: 'البريد الإلكتروني',
+    labelPass: 'كلمة المرور',
+    loginBtn: 'تسجيل الدخول',
+    errWrong: 'البريد الإلكتروني أو كلمة المرور غير صحيحة.',
+    errDevice: 'هذا الحساب مسجل على جهاز آخر. تواصل مع الموارد البشرية.',
+  },
+  bn: {
+    sys: 'উপস্থিতি সিস্টেম',
+    checkTitle: 'যাচাই করা হচ্ছে',
+    checkSub: 'আপনার অবস্থান ও ডিভাইস যাচাই করা হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন।',
+    step1: 'QR কোড যাচাই করা হচ্ছে...',
+    step2: 'অফিসের অবস্থান যাচাই করা হচ্ছে...',
+    step3: 'ডিভাইস যাচাই করা হচ্ছে...',
+    blockedTitle: 'প্রবেশ অস্বীকৃত',
+    blockedNoQR: 'সিস্টেমে প্রবেশ করতে অফিসে QR কোড স্ক্যান করতে হবে।',
+    blockedFar: 'আপনি অফিস থেকে অনেক দূরে আছেন। চেক ইন করতে অফিসে আসুন।',
+    loginTitle: 'স্বাগতম',
+    loginSub: 'উপস্থিতি রেকর্ড করতে সাইন ইন করুন',
+    labelEmail: 'কর্মের ইমেইল',
+    labelPass: 'পাসওয়ার্ড',
+    loginBtn: 'সাইন ইন',
+    errWrong: 'ইমেইল বা পাসওয়ার্ড ভুল।',
+    errDevice: 'এই অ্যাকাউন্ট অন্য ডিভাইসে নিবন্ধিত। HR-এর সাথে যোগাযোগ করুন।',
+  }
+};
+
+let lang = 'en';
+let gpsOk = false;
+let qrOk = false;
+
+function setLang(l) {
+  lang = l;
+  document.querySelectorAll('.lang-btn').forEach((b,i) => b.classList.toggle('active', ['en','ar','bn'][i]===l));
+  const t = LANGS[l];
+  document.getElementById('sysLabel').textContent = t.sys;
+  document.getElementById('loginTitle').textContent = t.loginTitle;
+  document.getElementById('loginSub').textContent = t.loginSub;
+  document.getElementById('labelEmail').textContent = t.labelEmail;
+  document.getElementById('labelPass').textContent = t.labelPass;
+  document.getElementById('loginBtnText').textContent = t.loginBtn;
+  document.body.style.direction = l === 'ar' ? 'rtl' : 'ltr';
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function stepDone(n) {
+  const el = document.getElementById('step'+n);
+  el.classList.remove('active');
+  el.classList.add('done');
+  el.querySelector('.step-dot').textContent = '✓';
+  if (n < 3) {
+    const next = document.getElementById('step'+(n+1));
+    next.classList.add('active');
+  }
+}
+
+function stepFail(n) {
+  const el = document.getElementById('step'+n);
+  el.classList.remove('active');
+  el.classList.add('fail');
+  el.querySelector('.step-dot').textContent = '✗';
+}
+
+function haversine(lat1,lng1,lat2,lng2) {
+  const R = 6371000;
+  const dLat = (lat2-lat1)*Math.PI/180;
+  const dLng = (lng2-lng1)*Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+function getDeviceFingerprint() {
+  const nav = window.navigator;
+  const raw = [nav.userAgent, nav.language, screen.width, screen.height, screen.colorDepth, nav.hardwareConcurrency, nav.platform].join('|');
+  let hash = 0;
+  for (let i = 0; i < raw.length; i++) {
+    hash = ((hash << 5) - hash) + raw.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash).toString(36);
+}
+
+async function runChecks() {
+  const t = LANGS[lang];
+  // Step 1: QR check (URL must have ?qr=pwh2026)
+  await sleep(600);
+  const params = new URLSearchParams(window.location.search);
+  qrOk = params.get('qr') === 'pwh2026';
+  if (!qrOk) {
+    stepFail(1);
+    await sleep(400);
+    document.getElementById('blockedTitle').textContent = t.blockedTitle;
+    document.getElementById('blockedMsg').textContent = t.blockedNoQR;
+    showScreen('screenBlocked');
+    return;
+  }
+  stepDone(1);
+
+  // Step 2: GPS check
+  await sleep(400);
+  try {
+    const pos = await new Promise((res,rej) => navigator.geolocation.getCurrentPosition(res,rej,{enableHighAccuracy:true,timeout:10000}));
+    const dist = haversine(pos.coords.latitude, pos.coords.longitude, OFFICE_LAT, OFFICE_LNG);
+    if (dist > MAX_DISTANCE) {
+      stepFail(2);
+      await sleep(400);
+      document.getElementById('blockedTitle').textContent = t.blockedTitle;
+      document.getElementById('blockedMsg').textContent = t.blockedFar + ` (${Math.round(dist)}m away)`;
+      showScreen('screenBlocked');
+      return;
+    }
+    gpsOk = true;
+    stepDone(2);
+    startGPSWatch(); // continuous watch
+  } catch(e) {
+    stepFail(2);
+    await sleep(400);
+    document.getElementById('blockedTitle').textContent = t.blockedTitle;
+    document.getElementById('blockedMsg').textContent = 'Location access denied. Please enable GPS.';
+    showScreen('screenBlocked');
+    return;
+  }
+
+  // Step 3: Device check (done at login)
+  await sleep(400);
+  stepDone(3);
+  await sleep(300);
+  showScreen('screenLogin');
+}
+
+// Continuous GPS watch — logout if leaves office
+function startGPSWatch() {
+  navigator.geolocation.watchPosition(pos => {
+    const dist = haversine(pos.coords.latitude, pos.coords.longitude, OFFICE_LAT, OFFICE_LNG);
+    if (dist > MAX_DISTANCE) {
+      // Force logout
+      localStorage.removeItem('pwh_session');
+      window.location.href = window.location.pathname; // reload without ?qr param
+    }
+  }, null, { enableHighAccuracy: true });
+}
+
+async function doLogin() {
+  const email = document.getElementById('emailInput').value.trim();
+  const pass  = document.getElementById('passInput').value;
+  const errEl = document.getElementById('loginError');
+  const btn   = document.getElementById('loginBtn');
+  const t     = LANGS[lang];
+
+  errEl.style.display = 'none';
+  btn.disabled = true;
+  document.getElementById('loginBtnText').innerHTML = '<span class="spinner"></span>';
+
+  try {
+    // Supabase Auth login
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY },
+      body: JSON.stringify({ email, password: pass })
+    });
+    const data = await res.json();
+
+    if (!res.ok || !data.access_token) {
+      throw new Error('wrong_credentials');
+    }
+
+    // Get employee record
+    const empRes = await fetch(`${SUPABASE_URL}/rest/v1/employees?email=eq.${encodeURIComponent(email)}&select=*`, {
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${data.access_token}` }
+    });
+    const empData = await empRes.json();
+    if (!empData.length) throw new Error('wrong_credentials');
+    const emp = empData[0];
+
+    // Device fingerprint check (skip for admin)
+    const fingerprint = getDeviceFingerprint();
+    if (emp.role !== 'admin') {
+      const devRes = await fetch(`${SUPABASE_URL}/rest/v1/devices?employee_id=eq.${emp.employee_id}&select=*`, {
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${data.access_token}` }
+      });
+      const devData = await devRes.json();
+
+      if (devData.length === 0) {
+        // Register this device
+        await fetch(`${SUPABASE_URL}/rest/v1/devices`, {
+          method: 'POST',
+          headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${data.access_token}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+          body: JSON.stringify({ employee_id: emp.employee_id, device_fingerprint: fingerprint })
+        });
+      } else if (devData[0].device_fingerprint !== fingerprint) {
+        throw new Error('wrong_device');
+      }
+    }
+
+    // Save session
+    localStorage.setItem('pwh_session', JSON.stringify({ token: data.access_token, emp, lang }));
+
+    // Redirect
+    window.location.href = emp.role === 'admin' ? 'admin.html' : 'employee.html';
+
+  } catch(e) {
+    errEl.textContent = e.message === 'wrong_device' ? t.errDevice : t.errWrong;
+    errEl.style.display = 'block';
+  }
+
+  btn.disabled = false;
+  document.getElementById('loginBtnText').textContent = t.loginBtn;
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// START
+runChecks();
+</script>
+</body>
+</html>
