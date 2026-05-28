@@ -649,7 +649,7 @@ async function saveEmployee() {
       if (!password || password.length < 6) throw new Error('password_short');
       const authRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`,{
         method:'POST',
-        headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`,'Content-Type':'application/json'},
+        headers:{apikey:SERVICE_KEY,Authorization:`Bearer ${SERVICE_KEY}`,'Content-Type':'application/json'},
         body:JSON.stringify({email:data.email,password:password,email_confirm:true})
       });
       if (!authRes.ok) throw new Error('auth_failed');
