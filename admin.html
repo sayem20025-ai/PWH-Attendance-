@@ -391,47 +391,7 @@ async function loadDashboard(){
   document.getElementById('dashTable').innerHTML=recs.length?recs.map(r=>{const e=em[r.employee_id];const s=getStatus(r);return`<tr><td><div class="emp-cell"><span class="emp-name">${r.full_name||'—'}</span><span class="emp-id">${r.employee_id}</span></div></td><td style="color:var(--muted)">${r.department||'—'}</td><td style="font-size:11px">${e?e.shift_start+'-'+e.shift_end:'—'}</td><td>${r.check_in||'—'}</td><td>${r.check_out||'—'}</td><td>${r.hours_worked?r.hours_worked+'h':'—'}</td><td><span class="badge ${s.cls}">${s.label}</span></td></tr>`;}).join(''):'<tr><td colspan="7" class="empty-state">No records yet today</td></tr>';
 }
 
-async function loadSheet(){
-  sheetM=+document.getElementById('sheetMonth').value;
-  sheetY=+document.getElementById('sheetYear').value;
-  const dept=document.getElementById('sheetDept').value;
-  const shift=document.getElementById('sheetShift').value;
-  document.getElementById('sheetContainer').innerHTML='<div class="empty-state"><span class="spinner"></span> Loading...</div>';
-  const first=`${sheetY}-${String(sheetM+1).padStart(2,'0')}-01`;
-  const last=new Date(sheetY,sheetM+1,0).toISOString().split('T')[0];
-  const dim=new Date(sheetY,sheetM+1,0).getDate();
-  let eu='/rest/v1/employees?is_active=eq.true&role=eq.employee&select=*&order=full_name';
-  if(dept)eu+=`&department=eq.${encodeURIComponent(dept)}`;
-  const [emps,recs]=await Promise.all([apiGet(eu),apiGet(`/rest/v1/attendance?date=gte.${first}&date=lte.${last}&select=*`)]);
-  let filtered=shift?emps.filter(e=>e.shift_start===shift):emps;
-  sheetEmps=filtered;sheetRecs=recs;
-  const rm={};recs.forEach(r=>{rm[r.employee_id+'_'+r.date]=r;});
-  const today=new Date();const todayStr=today.toISOString().split('T')[0];
-  const dn=['Su','Mo','Tu','We','Th','Fr','Sa'];
-  const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
-  let hd=`<th class="name-col">${months[sheetM]} ${sheetY}</th><th class="totals-col">Total</th><th class="totals-col">Avg</th>`;
-  for(let d=1;d<=dim;d++){const ds=`${sheetY}-${String(sheetM+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;const dow=new Date(ds).getDay();const we=dow===5||dow===6;const isT=ds===todayStr;hd+=`<th class="${we?'wknd':''}" style="${isT?'background:#0077aa;outline:none':''}"> ${d}<br><span style="font-size:9px;opacity:.7">${dn[dow]}</span></th>`;}
-  let rows='';
-  filtered.forEach(e=>{
-    let totMin=0,pDays=0;let cells='';
-    for(let d=1;d<=dim;d++){
-      const ds=`${sheetY}-${String(sheetM+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-      const rec=rm[e.employee_id+'_'+ds];
-      const isFut=new Date(ds+'T12:00:00')>today;const isT=ds===todayStr;
-      let cls='',val='',tt='';
-      if(rec){
-        if(rec.is_dayoff){cls='dayoff';val='DO';}
-        else if(rec.check_in){const h=rec.hours_worked||0;if(h>0){totMin+=h*60;val=fmtH(h);}else val=rec.check_in;cls=rec.is_late?'late':'present';pDays++;}
-        tt=`title="${rec.check_in?'In:'+rec.check_in:''} ${rec.check_out?'Out:'+rec.check_out:''} ${rec.notes?'| '+rec.notes:''}"`;
-      }else if(isFut){cls='future';}else{cls='absent';val='A';}
-      cells+=`<td class="day-cell ${cls}${isT?' tdy':''}" ${tt} onclick="openCell('${e.employee_id}','${e.full_name.replace(/'/g,'\\'')}','${ds}')"><span class="cv">${val}</span></td>`;
-    }
-    const th=totMin>0?fmtH(totMin/60):'—';const av=pDays>0?fmtH((totMin/60)/pDays):'—';
-    rows+=`<tr><td class="name-cell">${e.full_name}<br><span style="font-size:10px;color:var(--muted)">${e.employee_id}</span></td><td class="totals-cell">${th}</td><td class="totals-cell">${av}</td>${cells}</tr>`;
-  });
-  if(!filtered.length){document.getElementById('sheetContainer').innerHTML='<div class="empty-state">No employees found</div>';return;}
-  document.getElementById('sheetContainer').innerHTML=`<div class="sheet-wrap"><table class="sheet-table"><thead><tr>${hd}</tr></thead><tbody>${rows}</tbody></table></div><div class="legend"><span>🟢 Present</span><span>🟡 Late</span><span>🔴 A = Absent</span><span>🔵 DO = Day Off</span><span style="margin-left:auto;font-size:11px">Click any cell to view/edit</span></div>`;
-}
+
 
 function fmtH(h){const hh=Math.floor(h),mm=Math.round((h-hh)*60);return`${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;}
 
@@ -453,30 +413,7 @@ function openCell(empId,empName,ds){
   document.getElementById('cellModal').classList.add('show');
 }
 
-async function saveCellEdit(){
-  const empId=document.getElementById('cellEmpId').value;
-  const ds=document.getElementById('cellDateVal').value;
-  const recId=document.getElementById('cellRecId').value;
-  const ci=document.getElementById('cellIn').value;
-  const co=document.getElementById('cellOut').value;
-  const st=document.getElementById('cellStatus').value;
-  const notes=document.getElementById('cellNote').value;
-  const btn=document.getElementById('saveCellBtn');
-  btn.innerHTML='<span class="spinner"></span>';btn.disabled=true;
-  let hw=null;
-  if(ci&&co){const[ih,im]=ci.split(':').map(Number);const[oh,om]=co.split(':').map(Number);hw=+((oh*60+om-ih*60-im)/60).toFixed(2);}
-  const ed=sheetEmps.find(e=>e.employee_id===empId)||allEmployees.find(e=>e.employee_id===empId);
-  const payload={employee_id:empId,full_name:ed?.full_name||empId,department:ed?.department||'',date:ds,check_in:ci||null,check_out:co||null,is_late:st==='late',is_dayoff:st==='dayoff',hours_worked:hw,notes:notes||null};
-  try{
-    let res;
-    if(recId){res=await api(`/rest/v1/attendance?id=eq.${recId}`,'PATCH',payload);}
-    else if(st!=='absent'){res=await api('/rest/v1/attendance','POST',payload);}
-    else{closeModal('cellModal');btn.innerHTML='Save Changes';btn.disabled=false;return;}
-    if(res&&res.ok){closeModal('cellModal');loadSheet();}
-    else throw new Error();
-  }catch{document.getElementById('cellErr').textContent='Failed to save.';document.getElementById('cellErr').style.display='block';}
-  btn.innerHTML='Save Changes';btn.disabled=false;
-}
+
 
 async function loadEmployeesData(){
   allEmployees=await apiGet('/rest/v1/employees?order=full_name&select=*');
@@ -565,13 +502,7 @@ function getStatus(r){if(!r.check_in)return{cls:'badge-absent',label:'Absent'};i
 
 function exportCSV(){const rows=[['ID','Name','Dept','Date','In','Out','Hours','Status']];allAttendance.forEach(r=>rows.push([r.employee_id,r.full_name,r.department,r.date,r.check_in,r.check_out,r.hours_worked,getStatus(r).label]));const csv=rows.map(r=>r.map(c=>`"${c||''}"`).join(',')).join('\n');const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download=`pwh-${new Date().toISOString().split('T')[0]}.csv`;a.click();}
 
-function exportSheetCSV(){
-  if(!sheetEmps.length){alert('Load the sheet first!');return;}
-  const dim=new Date(sheetY,sheetM+1,0).getDate();const rm={};sheetRecs.forEach(r=>{rm[r.employee_id+'_'+r.date]=r;});
-  const hdr=['Name','ID',...Array.from({length:dim},(_,i)=>i+1),'Total'];const rows=[hdr];
-  sheetEmps.forEach(e=>{let t=0;const cells=Array.from({length:dim},(_,i)=>{const d=i+1;const ds=`${sheetY}-${String(sheetM+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;const rec=rm[e.employee_id+'_'+ds];if(!rec)return'A';if(rec.is_dayoff)return'DO';if(rec.hours_worked){t+=rec.hours_worked;return fmtH(rec.hours_worked);}return rec.check_in||'—';});rows.push([e.full_name,e.employee_id,...cells,fmtH(t)]);});
-  const csv=rows.map(r=>r.map(c=>`"${c||''}"`).join(',')).join('\n');const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download=`pwh-sheet-${sheetY}-${sheetM+1}.csv`;a.click();
-}
+
 
 function closeModal(id){document.getElementById(id).classList.remove('show');}
 
