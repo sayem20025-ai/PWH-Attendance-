@@ -181,7 +181,8 @@ tr:hover td{background:rgba(0,153,204,.03);}
 <div class="layout">
   <div class="sidebar">
     <div class="sidebar-item active" onclick="showPage('dashboard',this)"><span>📊</span> Dashboard</div>
-    <div class="sidebar-item" onclick="showPage('sheet',this)"><span>📋</span> Attendance Sheet</div>
+    <div class="sidebar-item" onclick="showPage('attendance',this)"><span>📋</span> Attendance</div>
+    <div class="sidebar-item" onclick="showPage('sheet',this)"><span>📊</span> Attendance Sheet</div>
     <div class="sidebar-item" onclick="showPage('employees',this)"><span>👥</span> Employees</div>
     <div class="sidebar-item" onclick="showPage('reports',this)"><span>📈</span> Reports</div>
   </div>
@@ -361,7 +362,7 @@ function showPage(p,el){
   el.classList.add('active');
 }
 
-async function apiGet(path){
+async async function apiGet(path){
   const r=await fetch(SUPABASE_URL+path,{headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${session.token}`}});
   return r.json();
 }
