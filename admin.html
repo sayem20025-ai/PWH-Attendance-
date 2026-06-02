@@ -181,7 +181,7 @@ tr:hover td{background:rgba(0,153,204,.03);}
 <div class="layout">
   <div class="sidebar">
     <div class="sidebar-item active" onclick="showPage('dashboard',this)"><span>📊</span> Dashboard</div>
-    <div class="sidebar-item" onclick="showPage('attendance',this)"><span>📋</span> Attendance</div>
+    <div class="sidebar-item" onclick="showPage('sheet',this)"><span>📋</span> Attendance</div>
     <div class="sidebar-item" onclick="showPage('sheet',this)"><span>📊</span> Attendance Sheet</div>
     <div class="sidebar-item" onclick="showPage('employees',this)"><span>👥</span> Employees</div>
     <div class="sidebar-item" onclick="showPage('reports',this)"><span>📈</span> Reports</div>
@@ -205,20 +205,6 @@ tr:hover td{background:rgba(0,153,204,.03);}
         <table><thead><tr><th>Employee</th><th>Department</th><th>Shift</th><th>Check In</th><th>Check Out</th><th>Hours</th><th>Status</th></tr></thead>
         <tbody id="dashTable"><tr><td colspan="7" style="text-align:center;padding:40px"><span class="spinner"></span></td></tr></tbody></table>
       </div>
-    </div>
-
-    <!-- SHEET -->
-    <div class="page" id="pageSheet">
-      <div class="section-title">Attendance Sheet</div>
-      <div class="filters">
-        <select id="sheetMonth"></select>
-        <select id="sheetYear"></select>
-        <select id="sheetDept"><option value="">All Departments</option></select>
-        <select id="sheetShift"><option value="">All Shifts</option></select>
-        <button class="btn btn-sky" onclick="loadSheet()">Display</button>
-        <button class="btn btn-outline" onclick="exportSheetCSV()">Export CSV</button>
-      </div>
-      <div id="sheetContainer"><div class="empty-state">Select filters and click Display</div></div>
     </div>
 
     <!-- EMPLOYEES -->
@@ -304,38 +290,13 @@ tr:hover td{background:rgba(0,153,204,.03);}
   </div>
 </div>
 
-<!-- CELL EDIT MODAL -->
-<div class="modal-bg" id="cellModal">
-  <div class="modal" style="max-width:400px">
-    <button class="modal-close" onclick="closeModal('cellModal')">×</button>
-    <div class="modal-title" id="cellTitle">Edit Attendance</div>
-    <div style="display:grid;gap:12px">
-      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--muted);font-size:12px">Employee</span><span id="cellEmpName" style="font-weight:600;font-size:14px"></span></div>
-      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--muted);font-size:12px">Date</span><span id="cellDateDisp" style="font-size:14px"></span></div>
-      <div class="form-row">
-        <div class="form-group"><label class="form-label">Check In</label><input type="time" id="cellIn" class="form-input"/></div>
-        <div class="form-group"><label class="form-label">Check Out</label><input type="time" id="cellOut" class="form-input"/></div>
-      </div>
-      <div class="form-group"><label class="form-label">Status</label>
-        <select id="cellStatus" class="form-input"><option value="present">✅ Present</option><option value="late">🟡 Late</option><option value="absent">🔴 Absent</option><option value="dayoff">🔵 Day Off (DO)</option></select>
-      </div>
-      <div class="form-group"><label class="form-label">Notes (optional)</label><input type="text" id="cellNote" class="form-input" placeholder="e.g. Sick leave, forgot checkout..."/></div>
-    </div>
-    <input type="hidden" id="cellRecId"/><input type="hidden" id="cellEmpId"/><input type="hidden" id="cellDateVal"/>
-    <div style="display:flex;gap:10px;margin-top:14px">
-      <button class="btn btn-sky" style="flex:1" onclick="saveCellEdit()" id="saveCellBtn">Save Changes</button>
-      <button class="btn btn-outline" onclick="closeModal('cellModal')">Cancel</button>
-    </div>
-    <div class="err-msg" id="cellErr"></div>
-  </div>
-</div>
 
 <script>
 const SUPABASE_URL='https://dqucdgknvcvlowtjwdrk.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxdWNkZ2tudmN2bG93dGp3ZHJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyOTgwNTcsImV4cCI6MjA5NDg3NDA1N30.JLq-F2r6QILwJRXj71ceVtNkxw2ZTi3mgo5I03gxQPc';
 const SERVICE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxdWNkZ2tudmN2bG93dGp3ZHJrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTI5ODA1NywiZXhwIjoyMDk0ODc0MDU3fQ.rH-HO2r_NvHMVMffQ0DQ6BMPToxybUhB002d1Ioturs';
 
-let session,emp,allEmployees=[],allAttendance=[],sheetEmps=[],sheetRecs=[],sheetY,sheetM;
+let session,emp,allEmployees=[],allAttendance=[],sheetEmps=[],sheetRecs=[],sheetY,sheetM,sheetYear,sheetMonth;
 
 function init(){
   const raw=localStorage.getItem('pwh_session');
@@ -345,13 +306,9 @@ function init(){
   document.getElementById('adminName').textContent=emp.full_name;
   const now=new Date();
   document.getElementById('dashDate').textContent='Today — '+now.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
-  const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const mSel=document.getElementById('sheetMonth');
-  months.forEach((m,i)=>{const o=document.createElement('option');o.value=i;o.textContent=m;if(i===now.getMonth())o.selected=true;mSel.appendChild(o);});
-  const ySel=document.getElementById('sheetYear');
-  [2025,2026,2027].forEach(y=>{const o=document.createElement('option');o.value=y;o.textContent=y;if(y===now.getFullYear())o.selected=true;ySel.appendChild(o);});
   document.getElementById('repMonth').value=now.getMonth();
   document.getElementById('repYear').value=now.getFullYear();
+  initSheet();
   loadDashboard();loadEmployeesData();
 }
 
@@ -362,7 +319,7 @@ function showPage(p,el){
   el.classList.add('active');
 }
 
-async async function apiGet(path){
+async function apiGet(path){
   const r=await fetch(SUPABASE_URL+path,{headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${session.token}`}});
   return r.json();
 }
@@ -395,23 +352,6 @@ async function loadDashboard(){
 
 function fmtH(h){const hh=Math.floor(h),mm=Math.round((h-hh)*60);return`${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;}
 
-function openCell(empId,empName,ds){
-  document.getElementById('cellEmpId').value=empId;
-  document.getElementById('cellDateVal').value=ds;
-  document.getElementById('cellEmpName').textContent=empName;
-  document.getElementById('cellDateDisp').textContent=new Date(ds+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
-  const rec=sheetRecs.find(r=>r.employee_id===empId&&r.date===ds);
-  document.getElementById('cellRecId').value=rec?rec.id:'';
-  document.getElementById('cellIn').value=rec?.check_in||'';
-  document.getElementById('cellOut').value=rec?.check_out||'';
-  document.getElementById('cellNote').value=rec?.notes||'';
-  if(rec?.is_dayoff)document.getElementById('cellStatus').value='dayoff';
-  else if(rec?.is_late)document.getElementById('cellStatus').value='late';
-  else if(rec?.check_in)document.getElementById('cellStatus').value='present';
-  else document.getElementById('cellStatus').value='absent';
-  document.getElementById('cellErr').style.display='none';
-  document.getElementById('cellModal').classList.add('show');
-}
 
 
 
@@ -509,7 +449,6 @@ function closeModal(id){document.getElementById(id).classList.remove('show');}
 // ── ATTENDANCE SHEET ────────────────────────────────────────
 let sheetEmployees = [];
 let sheetRecords = {};
-let sheetYear, sheetMonth;
 let cellType = 'present';
 
 function initSheet() {
