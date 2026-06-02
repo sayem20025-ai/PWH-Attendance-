@@ -181,7 +181,7 @@ tr:hover td{background:rgba(0,153,204,.03);}
 <div class="layout">
   <div class="sidebar">
     <div class="sidebar-item active" onclick="showPage('dashboard',this)"><span>📊</span> Dashboard</div>
-    <div class="sidebar-item" onclick="showPage('sheet',this)"><span>📋</span> Attendance</div>
+    <div class="sidebar-item" onclick="showPage('attendance',this)"><span>📋</span> Attendance</div>
     <div class="sidebar-item" onclick="showPage('sheet',this)"><span>📊</span> Attendance Sheet</div>
     <div class="sidebar-item" onclick="showPage('employees',this)"><span>👥</span> Employees</div>
     <div class="sidebar-item" onclick="showPage('reports',this)"><span>📈</span> Reports</div>
@@ -204,6 +204,56 @@ tr:hover td{background:rgba(0,153,204,.03);}
         <div class="table-top"><span class="table-title">Today's Attendance</span><button class="btn btn-outline" onclick="exportCSV()">Export CSV</button></div>
         <table><thead><tr><th>Employee</th><th>Department</th><th>Shift</th><th>Check In</th><th>Check Out</th><th>Hours</th><th>Status</th></tr></thead>
         <tbody id="dashTable"><tr><td colspan="7" style="text-align:center;padding:40px"><span class="spinner"></span></td></tr></tbody></table>
+      </div>
+    </div>
+
+    <!-- ATTENDANCE (Today's Live View) -->
+    <div class="page" id="pageAttendance">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px">
+        <div class="section-title" style="margin:0" id="attPageDate">Today's Attendance</div>
+        <button class="btn btn-outline" onclick="exportAttCSV()">Export CSV</button>
+      </div>
+
+      <!-- Summary strips -->
+      <div class="stats-grid" style="margin-bottom:18px">
+        <div class="stat-card"><div class="stat-label">Total Staff</div><div class="stat-val gold" id="attTotal">—</div></div>
+        <div class="stat-card"><div class="stat-label">Present</div><div class="stat-val green" id="attPresent">—</div></div>
+        <div class="stat-card"><div class="stat-label">Absent</div><div class="stat-val red" id="attAbsent">—</div></div>
+        <div class="stat-card"><div class="stat-label">Late</div><div class="stat-val warn" id="attLate">—</div></div>
+        <div class="stat-card"><div class="stat-label">In Office Now</div><div class="stat-val sky" id="attInOffice">—</div></div>
+      </div>
+
+      <!-- Filters -->
+      <div class="filters" style="margin-bottom:14px">
+        <input type="text" placeholder="🔍 Search employee..." id="attSearch" oninput="filterAttPage()" style="min-width:200px"/>
+        <select id="attDeptFilter" onchange="filterAttPage()"><option value="">All Departments</option></select>
+        <select id="attShiftFilter" onchange="filterAttPage()"><option value="">All Shifts</option></select>
+        <select id="attStatusFilter" onchange="filterAttPage()">
+          <option value="">All Statuses</option>
+          <option value="present">✅ Present</option>
+          <option value="late">🟡 Late</option>
+          <option value="absent">🔴 Absent</option>
+          <option value="in_office">🏢 In Office Now</option>
+        </select>
+        <button class="btn btn-outline" onclick="loadAttPage()">🔄 Refresh</button>
+      </div>
+
+      <!-- Table -->
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Employee</th>
+              <th>Department</th>
+              <th>Shift</th>
+              <th>Check In</th>
+              <th>Check Out</th>
+              <th>Hours</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="attTable"><tr><td colspan="7" style="text-align:center;padding:40px"><span class="spinner"></span></td></tr></tbody>
+        </table>
       </div>
     </div>
 
@@ -317,6 +367,7 @@ function showPage(p,el){
   document.querySelectorAll('.sidebar-item').forEach(x=>x.classList.remove('active'));
   document.getElementById('page'+p.charAt(0).toUpperCase()+p.slice(1)).classList.add('active');
   el.classList.add('active');
+  if(p==='attendance') loadAttPage();
 }
 
 async function apiGet(path){
@@ -351,6 +402,108 @@ async function loadDashboard(){
 
 
 function fmtH(h){const hh=Math.floor(h),mm=Math.round((h-hh)*60);return`${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;}
+
+// ── ATTENDANCE PAGE ──────────────────────────────────────────
+let attRawData = [];
+
+async function loadAttPage(){
+  document.getElementById('attTable').innerHTML='<tr><td colspan="7" style="text-align:center;padding:40px"><span class="spinner"></span></td></tr>';
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('attPageDate').textContent = 'Today\'s Attendance — ' + new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+
+  const [emps, recs] = await Promise.all([
+    apiGet('/rest/v1/employees?order=full_name&select=*'),
+    apiGet(`/rest/v1/attendance?date=eq.${today}&select=*,employees(full_name,department,shift_start,shift_end)`)
+  ]);
+
+  const em = {};
+  emps.forEach(e => em[e.employee_id] = e);
+
+  // Build full list: every employee + their record (if any)
+  attRawData = emps.filter(e => e.role !== 'admin').map(e => {
+    const rec = recs.find(r => r.employee_id === e.employee_id) || null;
+    return { emp: e, rec };
+  });
+
+  // Populate dept & shift filters
+  const depts = [...new Set(emps.map(e=>e.department).filter(Boolean))].sort();
+  const shifts = [...new Set(emps.map(e=>e.shift_start).filter(Boolean))].sort();
+  const dSel = document.getElementById('attDeptFilter');
+  const sSel = document.getElementById('attShiftFilter');
+  dSel.innerHTML = '<option value="">All Departments</option>' + depts.map(d=>`<option value="${d}">${d}</option>`).join('');
+  sSel.innerHTML = '<option value="">All Shifts</option>' + shifts.map(s=>`<option value="${s}">${s}</option>`).join('');
+
+  renderAttPage(attRawData);
+}
+
+function renderAttPage(data){
+  // Stats
+  const total   = data.length;
+  const present = data.filter(d => d.rec && d.rec.check_in).length;
+  const absent  = data.filter(d => !d.rec || !d.rec.check_in).length;
+  const late    = data.filter(d => d.rec && d.rec.is_late).length;
+  const inOffice= data.filter(d => d.rec && d.rec.check_in && !d.rec.check_out).length;
+
+  document.getElementById('attTotal').textContent    = total;
+  document.getElementById('attPresent').textContent  = present;
+  document.getElementById('attAbsent').textContent   = absent;
+  document.getElementById('attLate').textContent     = late;
+  document.getElementById('attInOffice').textContent = inOffice;
+
+  if(!data.length){
+    document.getElementById('attTable').innerHTML='<tr><td colspan="7" class="empty-state">No employees found</td></tr>';
+    return;
+  }
+
+  document.getElementById('attTable').innerHTML = data.map(({emp, rec}) => {
+    const s = rec ? getStatus(rec) : {cls:'badge-absent',label:'🔴 Absent'};
+    const shift = (emp.shift_start && emp.shift_end) ? `${emp.shift_start}–${emp.shift_end}` : '—';
+    return `<tr>
+      <td><div class="emp-cell"><span class="emp-name">${emp.full_name||'—'}</span><span class="emp-id">${emp.employee_id}</span></div></td>
+      <td style="color:var(--muted)">${emp.department||'—'}</td>
+      <td style="font-size:11px">${shift}</td>
+      <td>${rec?.check_in||'—'}</td>
+      <td>${rec?.check_out||'—'}</td>
+      <td>${rec?.hours_worked ? rec.hours_worked+'h' : '—'}</td>
+      <td><span class="badge ${s.cls}">${s.label}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function filterAttPage(){
+  const q    = document.getElementById('attSearch').value.toLowerCase();
+  const dept = document.getElementById('attDeptFilter').value;
+  const shft = document.getElementById('attShiftFilter').value;
+  const stat = document.getElementById('attStatusFilter').value;
+
+  const filtered = attRawData.filter(({emp, rec}) => {
+    if(q && !(emp.full_name||'').toLowerCase().includes(q) && !(emp.employee_id||'').toLowerCase().includes(q)) return false;
+    if(dept && emp.department !== dept) return false;
+    if(shft && emp.shift_start !== shft) return false;
+    if(stat === 'present'  && !(rec && rec.check_in && !rec.is_late)) return false;
+    if(stat === 'late'     && !(rec && rec.is_late)) return false;
+    if(stat === 'absent'   && (rec && rec.check_in)) return false;
+    if(stat === 'in_office'&& !(rec && rec.check_in && !rec.check_out)) return false;
+    return true;
+  });
+  renderAttPage(filtered);
+}
+
+function exportAttCSV(){
+  const rows = [['ID','Name','Department','Shift','Check In','Check Out','Hours','Status']];
+  attRawData.forEach(({emp, rec}) => {
+    const s = rec ? getStatus(rec) : {label:'Absent'};
+    const shift = emp.shift_start ? `${emp.shift_start}-${emp.shift_end}` : '';
+    rows.push([emp.employee_id, emp.full_name, emp.department, shift, rec?.check_in||'', rec?.check_out||'', rec?.hours_worked||'', s.label]);
+  });
+  const csv = rows.map(r => r.map(c=>`"${c||''}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = `attendance-${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+}
+
+
 
 
 
