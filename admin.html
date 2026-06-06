@@ -277,8 +277,10 @@ tr:hover td{background:rgba(0,153,204,.03);}
     <div class="page" id="pageSheet">
       <div class="section-title">Attendance Sheet</div>
       <div class="sheet-controls">
+        <button class="btn btn-outline" onclick="sheetNavMonth(-1)" title="Previous month">◀</button>
         <select id="sheetMonth"></select>
         <input type="number" id="sheetYear" style="width:80px" />
+        <button class="btn btn-outline" onclick="sheetNavMonth(1)" title="Next month">▶</button>
         <select id="sheetDept"><option value="">All Departments</option></select>
         <select id="sheetShift"><option value="">All Shifts</option></select>
         <button class="btn btn-gold" onclick="loadSheet()">Display</button>
@@ -613,7 +615,20 @@ function initSheet() {
   document.getElementById('sheetYear').value = now.getFullYear();
 }
 
-async function loadSheet() {
+function sheetNavMonth(dir) {
+  const sel  = document.getElementById('sheetMonth');
+  const yInp = document.getElementById('sheetYear');
+  let m = +sel.value;
+  let y = +yInp.value;
+  m += dir;
+  if (m < 0)  { m = 11; y--; }
+  if (m > 11) { m = 0;  y++; }
+  sel.value  = m;
+  yInp.value = y;
+  loadSheet();
+}
+
+
   sheetMonth = +document.getElementById('sheetMonth').value;
   sheetYear  = +document.getElementById('sheetYear').value;
   const dept  = document.getElementById('sheetDept').value;
@@ -660,16 +675,21 @@ function renderSheet(firstDay, lastDay) {
   }
 
   const dowLabels = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+  const monLabels = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-  // Header
-  let headHtml = '<tr><th class="col-name">Name</th><th class="col-total">Total</th><th class="col-total">Avg</th>';
+  // Header — Name | date cols... | Days | Total | Avg
+  let headHtml = '<tr><th class="col-name">Name</th>';
   dates.forEach(date => {
     const isToday = date.getTime() === today.getTime();
     const d   = date.getDate();
     const dow = dowLabels[date.getDay()];
-    const mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][date.getMonth()];
-    headHtml += `<th style="${isToday?'background:#ffb400;color:#021040':''}">${d}<br><span style="font-weight:400;opacity:0.7">${dow}</span></th>`;
+    const mon = monLabels[date.getMonth()];
+    const isFirst = d === 1; // show month label on 1st of month
+    headHtml += `<th style="${isToday?'background:#ffb400;color:#021040':''}">${isFirst?`<span style="font-size:8px;opacity:0.6">${mon}</span><br>`:''}${d}<br><span style="font-weight:400;opacity:0.7">${dow}</span></th>`;
   });
+  headHtml += '<th class="col-total" style="position:sticky;right:64px;background:#021040;z-index:2">Days</th>';
+  headHtml += '<th class="col-total" style="position:sticky;right:32px;background:#021040;z-index:2">Total</th>';
+  headHtml += '<th class="col-total" style="position:sticky;right:0;background:#021040;z-index:2">Avg</th>';
   headHtml += '</tr>';
   document.getElementById('sheetHead').innerHTML = headHtml;
 
@@ -677,7 +697,7 @@ function renderSheet(firstDay, lastDay) {
   let bodyHtml = '';
   sheetEmployees.forEach(emp => {
     let totalMins = 0, presentDays = 0, lateDays = 0;
-    let rowHtml = `<td class="td-name">${emp.full_name}<br><span style="font-size:10px;color:var(--muted)">${emp.employee_id}</span></td>`;
+    let dateCells = '';
 
     dates.forEach(date => {
       const isFuture = date > today;
@@ -685,7 +705,7 @@ function renderSheet(firstDay, lastDay) {
       const rec = sheetRecords[emp.employee_id]?.[dateStr];
 
       if (isFuture) {
-        rowHtml += `<td><button class="cell-btn cell-future" disabled>-</button></td>`;
+        dateCells += `<td><button class="cell-btn cell-future" disabled>-</button></td>`;
         return;
       }
 
@@ -694,12 +714,10 @@ function renderSheet(firstDay, lastDay) {
       if (rec) {
         if (rec.status === 'off') {
           cellClass='cell-off'; cellContent='<span class="cin">DO</span>'; status='off';
-
-        // FIX 2: check_in but NO check_out AND it's a past day = show "?" (missing checkout)
         } else if (rec.check_in && !rec.check_out && date < today) {
+          // Missing checkout — show ?
           cellClass='cell-missing'; cellContent='<span class="cin" style="font-size:14px;font-weight:bold;color:#ff6b00">?</span>'; status='missing';
-          presentDays++; // still counts as came in
-
+          presentDays++;
         } else if (rec.check_in) {
           const isLate = rec.is_late;
           cellClass = isLate ? 'cell-late' : 'cell-present';
@@ -708,7 +726,6 @@ function renderSheet(firstDay, lastDay) {
           if (rec.hours_worked) totalMins += rec.hours_worked * 60;
           presentDays++;
           if (isLate) lateDays++;
-
         } else {
           cellClass='cell-absent'; cellContent='<span class="cin">ABS</span>'; status='absent';
         }
@@ -718,19 +735,21 @@ function renderSheet(firstDay, lastDay) {
 
       const recId = rec ? rec.id : '';
       const note  = rec?.note || '';
-      rowHtml += `<td title="${note}"><button class="cell-btn ${cellClass}" onclick="openCellModal('${emp.employee_id}','${dateStr}','${recId}','${status}')">${cellContent}${note?'<span style="font-size:8px">📝</span>':''}</button></td>`;
+      dateCells += `<td title="${note}"><button class="cell-btn ${cellClass}" onclick="openCellModal('${emp.employee_id}','${dateStr}','${recId}','${status}')">${cellContent}${note?'<span style="font-size:8px">📝</span>':''}</button></td>`;
     });
 
-    // FIX 1: Total and avg based only on days with actual hours
+    // Totals
     const totalH = Math.floor(totalMins/60);
     const totalM = Math.round(totalMins%60);
     const avgMins = presentDays ? Math.round(totalMins/presentDays) : 0;
     const avgH = Math.floor(avgMins/60); const avgM = avgMins%60;
 
     bodyHtml += `<tr>
-      ${rowHtml}
-      <td class="td-total">${presentDays>0?`${totalH}:${String(totalM).padStart(2,'0')}`:'—'}</td>
-      <td class="td-avg">${presentDays>0?`${avgH}:${String(avgM).padStart(2,'0')}`:'—'}</td>
+      <td class="td-name" style="position:sticky;left:0;background:#fff;z-index:1">${emp.full_name}<br><span style="font-size:10px;color:var(--muted)">${emp.employee_id}</span></td>
+      ${dateCells}
+      <td class="td-total" style="position:sticky;right:64px;background:#f0f4ff;font-weight:700;color:#021040">${presentDays}</td>
+      <td class="td-total" style="position:sticky;right:32px;background:#f0f4ff;font-weight:600">${totalMins>0?`${totalH}:${String(totalM).padStart(2,'0')}`:'—'}</td>
+      <td class="td-avg"   style="position:sticky;right:0;background:#f0f4ff">${presentDays>0?`${avgH}:${String(avgM).padStart(2,'0')}`:'—'}</td>
     </tr>`;
   });
 
