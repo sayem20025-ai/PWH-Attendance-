@@ -139,6 +139,7 @@ tr:hover td{background:rgba(0,153,204,.03);}
 
 .cell-present { background:#e8f5e9; color:#2e7d32; }
 .cell-late    { background:#fff8e1; color:#f57c00; }
+.cell-missing { background: #fff3e0; border: 1.5px solid #ff6b00; }
 .cell-absent  { background:#ffebee; color:#c62828; }
 .cell-off     { background:#e3f2fd; color:#1565c0; }
 .cell-future  { background:#fafafa; color:#bbb; cursor:default; }
@@ -620,9 +621,9 @@ async function loadSheet() {
 
   document.getElementById('sheetBody').innerHTML = '<tr><td colspan="5" style="text-align:center;padding:40px"><span class="spinner"></span> Loading...</td></tr>';
 
-  const firstDay = `${sheetYear}-${String(sheetMonth+1).padStart(2,'0')}-01`;
-  const lastDay  = new Date(sheetYear, sheetMonth+1, 0).toISOString().split('T')[0];
-  const daysInMonth = new Date(sheetYear, sheetMonth+1, 0).getDate();
+  // FIX 3: Custom cycle — month runs from 26th of PREVIOUS month to 25th of SELECTED month
+  const firstDay = `${sheetMonth === 0 ? sheetYear-1 : sheetYear}-${String(sheetMonth === 0 ? 12 : sheetMonth).padStart(2,'0')}-26`;
+  const lastDay  = `${sheetYear}-${String(sheetMonth+1).padStart(2,'0')}-25`;
 
   let empUrl = '/rest/v1/employees?is_active=eq.true&order=full_name&select=*';
   if (dept)  empUrl += `&department=eq.${encodeURIComponent(dept)}`;
@@ -642,21 +643,33 @@ async function loadSheet() {
     sheetRecords[r.employee_id][r.date] = r;
   });
 
-  renderSheet(daysInMonth);
+  renderSheet(firstDay, lastDay);
 }
 
-function renderSheet(daysInMonth) {
+function renderSheet(firstDay, lastDay) {
   const today = new Date();
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  today.setHours(0,0,0,0);
+
+  // Build array of all dates in cycle (26 prev → 25 curr)
+  const dates = [];
+  let cursor = new Date(firstDay + 'T00:00:00');
+  const end   = new Date(lastDay  + 'T00:00:00');
+  while (cursor <= end) {
+    dates.push(new Date(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  const dowLabels = ['Su','Mo','Tu','We','Th','Fr','Sa'];
 
   // Header
   let headHtml = '<tr><th class="col-name">Name</th><th class="col-total">Total</th><th class="col-total">Avg</th>';
-  for (let d=1; d<=daysInMonth; d++) {
-    const date = new Date(sheetYear, sheetMonth, d);
-    const dow  = ['Su','Mo','Tu','We','Th','Fr','Sa'][date.getDay()];
-    const isToday = date.toDateString() === today.toDateString();
+  dates.forEach(date => {
+    const isToday = date.getTime() === today.getTime();
+    const d   = date.getDate();
+    const dow = dowLabels[date.getDay()];
+    const mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][date.getMonth()];
     headHtml += `<th style="${isToday?'background:#ffb400;color:#021040':''}">${d}<br><span style="font-weight:400;opacity:0.7">${dow}</span></th>`;
-  }
+  });
   headHtml += '</tr>';
   document.getElementById('sheetHead').innerHTML = headHtml;
 
@@ -666,35 +679,36 @@ function renderSheet(daysInMonth) {
     let totalMins = 0, presentDays = 0, lateDays = 0;
     let rowHtml = `<td class="td-name">${emp.full_name}<br><span style="font-size:10px;color:var(--muted)">${emp.employee_id}</span></td>`;
 
-    for (let d=1; d<=daysInMonth; d++) {
-      const dateStr = `${sheetYear}-${String(sheetMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-      const rec = sheetRecords[emp.employee_id]?.[dateStr];
-      const date = new Date(sheetYear, sheetMonth, d);
+    dates.forEach(date => {
       const isFuture = date > today;
-      
-      // Determine cell
-      let cellClass, cellContent, status;
-      
+      const dateStr = date.toISOString().split('T')[0];
+      const rec = sheetRecords[emp.employee_id]?.[dateStr];
+
       if (isFuture) {
-        cellClass='cell-future'; cellContent=''; status='future';
         rowHtml += `<td><button class="cell-btn cell-future" disabled>-</button></td>`;
-        continue;
+        return;
       }
+
+      let cellClass, cellContent, status;
 
       if (rec) {
         if (rec.status === 'off') {
-          cellClass='cell-off'; 
-          cellContent='<span class="cin">DO</span>';
-          status='off';
+          cellClass='cell-off'; cellContent='<span class="cin">DO</span>'; status='off';
+
+        // FIX 2: check_in but NO check_out AND it's a past day = show "?" (missing checkout)
+        } else if (rec.check_in && !rec.check_out && date < today) {
+          cellClass='cell-missing'; cellContent='<span class="cin" style="font-size:14px;font-weight:bold;color:#ff6b00">?</span>'; status='missing';
+          presentDays++; // still counts as came in
+
         } else if (rec.check_in) {
           const isLate = rec.is_late;
           cellClass = isLate ? 'cell-late' : 'cell-present';
           status = isLate ? 'late' : 'present';
-          const hrs = rec.hours_worked ? rec.hours_worked+'h' : '';
           cellContent = `<span class="cin">${rec.check_in}</span><span class="cout">${rec.check_out||'...'}</span>`;
           if (rec.hours_worked) totalMins += rec.hours_worked * 60;
           presentDays++;
           if (isLate) lateDays++;
+
         } else {
           cellClass='cell-absent'; cellContent='<span class="cin">ABS</span>'; status='absent';
         }
@@ -703,11 +717,11 @@ function renderSheet(daysInMonth) {
       }
 
       const recId = rec ? rec.id : '';
-      const note = rec?.note || '';
+      const note  = rec?.note || '';
       rowHtml += `<td title="${note}"><button class="cell-btn ${cellClass}" onclick="openCellModal('${emp.employee_id}','${dateStr}','${recId}','${status}')">${cellContent}${note?'<span style="font-size:8px">📝</span>':''}</button></td>`;
-    }
+    });
 
-    // Total & avg
+    // FIX 1: Total and avg based only on days with actual hours
     const totalH = Math.floor(totalMins/60);
     const totalM = Math.round(totalMins%60);
     const avgMins = presentDays ? Math.round(totalMins/presentDays) : 0;
@@ -800,8 +814,9 @@ async function saveCellEdit() {
     sheetRecords[empId][date] = {...payload, id: recId};
 
     // Re-render
-    const daysInMonth = new Date(sheetYear, sheetMonth+1, 0).getDate();
-    renderSheet(daysInMonth);
+    const fd = `${sheetMonth === 0 ? sheetYear-1 : sheetYear}-${String(sheetMonth === 0 ? 12 : sheetMonth).padStart(2,'0')}-26`;
+    const ld = `${sheetYear}-${String(sheetMonth+1).padStart(2,'0')}-25`;
+    renderSheet(fd, ld);
     closeCellModal();
 
   } catch(e) {
@@ -814,20 +829,26 @@ async function saveCellEdit() {
 }
 
 function exportSheetCSV() {
-  const daysInMonth = new Date(sheetYear, sheetMonth+1, 0).getDate();
+  const firstDay = `${sheetMonth === 0 ? sheetYear-1 : sheetYear}-${String(sheetMonth === 0 ? 12 : sheetMonth).padStart(2,'0')}-26`;
+  const lastDay  = `${sheetYear}-${String(sheetMonth+1).padStart(2,'0')}-25`;
+  const dates = [];
+  let cursor = new Date(firstDay + 'T00:00:00');
+  const end   = new Date(lastDay  + 'T00:00:00');
+  while (cursor <= end) { dates.push(cursor.toISOString().split('T')[0]); cursor.setDate(cursor.getDate()+1); }
+
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  let rows = [['Employee', 'ID', ...Array.from({length:daysInMonth},(_,i)=>`${i+1}-${months[sheetMonth]}`),'Total Hours']];
+  let rows = [['Employee', 'ID', ...dates, 'Total Hours']];
   sheetEmployees.forEach(emp => {
     let row = [emp.full_name, emp.employee_id];
     let total = 0;
-    for (let d=1; d<=daysInMonth; d++) {
-      const dateStr = `${sheetYear}-${String(sheetMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    dates.forEach(dateStr => {
       const rec = sheetRecords[emp.employee_id]?.[dateStr];
       if (!rec) row.push('ABS');
       else if (rec.status==='off') row.push('DO');
+      else if (rec.check_in && !rec.check_out) row.push('?');
       else if (rec.check_in) { row.push(rec.check_in+(rec.check_out?'-'+rec.check_out:'')); total+=(rec.hours_worked||0); }
       else row.push('ABS');
-    }
+    });
     row.push(total.toFixed(1)+'h');
     rows.push(row);
   });
